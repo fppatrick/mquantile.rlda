@@ -34,7 +34,7 @@ set.seed(123)
 x <- rnorm(256)  # 256-point time series
 
 # Compute M-quantile periodogram (median)
-spec_result <- MPerioReg(x, tau = 0.5)
+spec_result <- mqper(x, tau = 0.5)
 
 # Plot spectrum
 plot(spec_result$freq, spec_result$spec, type = "l", 

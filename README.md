@@ -7,7 +7,7 @@ A collection of R functions for performing robust discriminant analysis in the f
 ## Description
 This suite of functions implements M-quantile spectral analysis and discriminant classification for time series data. The main components are:
 
-1. **`MPerioReg`**: Computes M-quantile periodograms for robust spectral estimation
+1. **`mqper`**: Computes M-quantile periodograms for robust spectral estimation
 2. **`lperd.mtm`**: Smooths and logs the periodogram
 3. **`cep.mtm`**: Computes cepstral coefficients from the log-periodogram
 4. **`cep.lda`**: Main function performing discriminant analysis using cepstral features

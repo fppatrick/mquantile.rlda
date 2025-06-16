@@ -1,4 +1,4 @@
-# M-Quantile Spectral Discriminant Analysis (`MPerioReg` and related functions)
+# M-Quantile Spectral Discriminant Analysis (`mqper` and related functions)
 
 A collection of R functions for performing robust discriminant analysis in the frequency domain using M-quantile regression methods.
 

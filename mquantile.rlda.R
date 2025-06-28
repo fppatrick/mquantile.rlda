@@ -15,35 +15,30 @@
 
 mqper <- function(series, tau) {
   n <- length(series)
-  perior <- FFT <- NULL
   g <- n %/% 2
-  for (j in 1:g) {
+  per <- FFT <- rep(0,g)
+  for (j in 1:(g-1)) {
     X1 <- X2 <- NULL
     w <- 2 * pi * j / n
-    for (i in 1:n) {
-      X1[i] <- cos(w * i)
-      X2[i] <- sin(w * i)
-    }
-    if (j != (n / 2)) {
-      MX <- cbind(X1, X2)
-      fitrob <- mqlm(MX, series, maxit=100, q=tau, k=1.345)
-      FFT[j] <- sqrt(n / (8 * pi)) * complex(real = fitrob$coef[1], imaginary = -fitrob$coef[2])
-    }
-    else {
-      MX <- cbind(X1)
-      fitrob <- mqlm(MX, series, maxit=100, q=tau, k=1.345)
-      FFT[j] <- sqrt(n / (2 * pi)) * complex(real = fitrob$coef[1], imaginary = -0)
-    }
-    perior[j] <- Mod(FFT[j])^2
+    X1 <- cos(w * 1:n)
+    X2 <- sin(w * 1:n)
+    MX <- cbind(X1, X2)
+    fitrob <- mqlm(MX, series, maxit=100, q=tau, k=1.345)
+    FFT[j] <- sqrt(n / (8 * pi)) * complex(real = fitrob$coefficients[2], imaginary = -fitrob$coefficients[3])
+    
   }
-  if ((n %% 2) != 0) {
-    spec <- c(perior, rev(perior))
-  } else {
-    spec <- c(perior, rev(perior))
-  }
+  w <- 2 * pi * seq_len(g) / n
+  X1 <- cos(w * 1:n)
+  fitrob <- mqlm(MX, series, maxit=100, q=tau, k=1.345)
+  FFT[g] <- sqrt(n / (8 * pi)) * complex(real = fitrob$coefficients[2], imaginary = -0)
+  per <- Mod(FFT)^2
+  
+  perior <- c(per[-1], rev(per))
+  
   w <- 2 * pi * seq.int(g) / n
-  return(list(spec = spec, freq = w))
+  return(list(spec = perior, freq = w))
 }
+
 
 lperd.mtm <-function(x, tau){
         mtm = mqper(x, tau)
@@ -53,20 +48,19 @@ lperd.mtm <-function(x, tau){
         z=list(freq=fr, lspec=lspec, spec=spec)
 }
 
-# cepstrals
+
 cep.mtm <-function(x, tau){
   n = length(x)
   lpa = lperd.mtm(x, tau)
   lp1 = lpa$lspec
-  cp = fft(c(lp1[-n], 0))/n
+  cp = fft(c(lp1[-n], 0))/(2 * pi)
   z=list(quef=0:(n-1), cep=Re(cp), freq=lpa$freq, lspec=lpa$lspec)
   z
 }
-## get random spectra and cepstral coefficeints
+
 cep.get <- function(y, x, tau){
   if(dim(x)[2] != length(y))
     stop("\n Number of time series and group information (y) must be the same \n")
-  ## get random spectra and cepstral coefficeints
   n <- dim(x)[2]
   N <- dim(x)[1]
   log.spec.hat <- matrix(0,nrow=n,ncol=N)
@@ -81,7 +75,7 @@ cep.get <- function(y, x, tau){
 }
 
 
-# Cross-validation process
+# Cross-validation
 Lopt.get <- function(data, mcep=mcep){
   cvK <- array(0,dim=mcep)
   for(k in 1:mcep){
@@ -94,15 +88,7 @@ Lopt.get <- function(data, mcep=mcep){
 }
 
 
-cep.lda <- function(
-    y,              # an n-vector indicating the group a time series belongs to
-    x,              # N by n matrix, containing n time series
-    tau,            # quantile
-    xNew=NULL,      # N by nNew matrix containing time series
-    L=FALSE,        # Number of cepstral coefficients.  CV is used to select if false.
-    mcep=30,        # the maximum number of cepstral coefficient considerd
-    cv=FALSE,       # If doing cross-validation
-    tol=1.0e-4
+cep.lda <- function(y,x,tau,xNew=NULL,L=FALSE,mcep=10,cv=FALSE,tol=1.0e-4
 ){
   if(is.matrix(x)==FALSE)
     stop("\n x must be a matrix or cannot be a signle time series")
@@ -113,17 +99,14 @@ cep.lda <- function(
   if(is.null(xNew) == 0 & cv != 0)
     stop("\n Cannot do precition of new data and leave-out-one prediction of training data.")
   
-  ## get random spectra and cepstral coefficeints
   D.hat0 <- cep.get(y,x, tau)
   
-  ## Cross-validation to get the optimal number of coefficients
   if(isTRUE(L)){
     Lopt <- L
   }else{
     Lopt <- Lopt.get(D.hat0,mcep)
   }
   
-  ## Run the discriminant analysis
   b <- as.formula(paste("y ~ ",paste(colnames(D.hat0[,1:(Lopt+1)]), collapse="+"),sep = ""))
   if(isTRUE(cv)){
     C.lda <- lda(b, data=D.hat0, CV=TRUE,tol=tol)
@@ -131,7 +114,7 @@ cep.lda <- function(
     cep.lda <- list(C.lda=C.lda, cep.data=D.hat0, Lopt=Lopt, lspec = NULL, predict=pre)
   } else{
     C.lda <- lda(b, data=D.hat0, CV=FALSE,tol=tol)
-    # Compute Log-spectral Weights
+
     Q = min(Lopt,length(unique(y))-1)
     frq <- seq(from=0, to=.5, by=1/(dim(D.hat0)[2]-1))
     dsc <- matrix(NA, nrow=length(frq), ncol=min(Lopt,length(unique(y))-1))
@@ -139,7 +122,7 @@ cep.lda <- function(
       dsc[,q] = recon(C.lda$scaling[,q],frq)
     }
     lspec <- list(dsc=dsc, frq=frq)               
-    # Do predictions on new data or test data (if no new data is supplied)
+
     if(is.null(xNew)==0){
       pre <- predict(C.lda, cep.get(array(0,dim=dim(xNew)[2]),xNew), prior=C.lda$prior)
     }else{
